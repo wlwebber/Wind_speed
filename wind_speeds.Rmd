@@ -1,0 +1,109 @@
+---
+title: "Wind_speeds"
+author: "Whitney"
+date: "11/15/2021"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+##Install packages
+
+```{r}
+library(tidyr)
+library(ggplot2)
+library(dplyr)
+```
+
+##Read in data
+
+```{r}
+setwd("/Users/Owner/Desktop/R Practice/")
+sampling_df <- read.csv("/Users/Owner/Desktop/R Practice/productivity_data_calculations.csv")
+weather <- read.csv("/Users/Owner/Desktop/R Practice/2019_PASI.csv", skip=6)
+weather <- weather[-c(1),]
+```
+
+##Combine date and time into a single column in data file
+
+```{r}
+colnames(sampling_df)
+sampling2 <- sampling_df %>% 
+  unite(date_time, Date, Init_time_hh.mm, sep = " ", remove = FALSE)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+##Convert to POSIXct for Alaska time zone for sampling data frame
+
+```{r}
+sampling2$date_time_local <- as.POSIXct(sampling2$date_time, tz="US/Alaska",
+                            format="%m/%d/%Y %H:%M:%S")
+head(sampling2$date_time_local)
+```
+
+##Convert to POSIXct for weather file
+
+```{r}
+weather$date_time_UTC <- as.POSIXct(weather$Date_Time, tz="UTC",format="%m/%d/%Y %H:%M")
+head(weather$date_time_UTC)
+```
+
+##Convert sampling file to UTC
+
+```{r}
+sampling2$date_time_UTC <- sampling2$date_time_local
+attr(sampling2$date_time_UTC, "tzone") <- "UTC"
+head(sampling2[,c("date_time_local","date_time_UTC")])
+```
+
+##Stick the wind speed from the weather data frame in a new column in the sampling data frame based on the closest time value
+
+```{r}
+sampling2$wind_speed = NA
+for(i in 1:nrow(sampling2)) {
+  rowindx = which.min(abs(sampling2$date_time_UTC[i] - weather$date_time_UTC))
+  sampling2$wind_speed[i] = weather$wind_speed_set_1[rowindx] 
+}
+```
+
+##Produce a histogram of wind speeds associated with the sampling times
+
+```{r}
+sampling2$wind_speed = as.numeric(sampling2$wind_speed)
+hist(sampling2$wind_speed, main = 'Histogram of Sampling Wind Speeds (m/s)', 
+     xlab = 'Wind speed', las=1)
+```
+  
+##Calculate summary statistics for the wind speeds associated with the sampling times: mean, SD, quartiles. Produce a set of labeled numbers in the output document.
+
+```{r}
+mean(sampling2$wind_speed)
+sd(sampling2$wind_speed)
+quantile(sampling2$wind_speed, 0.25)
+quantile(sampling2$wind_speed, 0.5)
+quantile(sampling2$wind_speed, 0.75)
+```
+
+##Produce a line plot of the wind speeds for all of 2019, with date on the x-axis
+
+```{r}
+weather <- weather %>%
+  rename(wind_speed = wind_speed_set_1)
+weather$wind_speed = as.numeric(weather$wind_speed)
+ggplot(weather, aes(x=date_time_UTC, y=wind_speed)) +
+  geom_line()
+```
+
+##Calculate summary statistics for the 2019 wind speed data (weather). What were the mean, SD, and quartiles of wind speeds for the whole year? Produce a set of labeled numbers in the output document. 
+
+```{r}
+mean(weather$wind_speed, na.rm=TRUE)
+sd(weather$wind_speed, na.rm=TRUE)
+quantile(weather$wind_speed, 0.25, na.rm=TRUE)
+quantile(weather$wind_speed, 0.5, na.rm=TRUE)
+quantile(weather$wind_speed, 0.75, na.rm=TRUE)
+```
+
+
+
